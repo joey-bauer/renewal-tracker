@@ -5,7 +5,13 @@ import re
 import streamlit as st
 
 from automator_logic import create_renewal_schedule
-from database import add_account, get_all_accounts, initialize_database
+from database import (
+    add_account, 
+    add_tasks,
+    get_all_accounts,
+    get_tasks_for_account,
+    initialize_database
+    )
 
 initialize_database()
 
@@ -94,6 +100,8 @@ if page == "Create Schedule":
                 underwriter_days
             )
 
+            add_tasks(account_id, renewal_tasks)
+
             st.success(f"Renewal schedule created for {account_name}.")
 
             st.subheader("Renewal schedule")
@@ -176,3 +184,40 @@ elif page == "All Accounts":
             use_container_width=True,
             hide_index=True
         )
+
+        st.subheader("Account Details")
+
+        selected_account = st.selectbox(
+            "Select an account",
+            options=accounts,
+            format_func=lambda account:(
+                f"{account[1]} - Renewal: {account[2]}"
+            )
+        )
+
+        selected_account_id = selected_account[0]
+        selected_account_name = selected_account[1]
+        selected_renewal_date = selected_account[2]
+
+        st.write(f"**Account:** {selected_account_name}")
+        st.write(f"**Renewal Date:** {selected_renewal_date}")
+
+        tasks = get_tasks_for_account(selected_account_id)
+
+        if not tasks:
+            st.info("No tasks have been saved for this account.")
+        else:
+            task_table = []
+
+            for task_id, task_name, due_date, status in tasks:
+                task_table.append({
+                    "Task": task_name,
+                    "Due Date": due_date,
+                    "Status": status
+                })
+
+            st.dataframe(
+                task_table,
+                use_container_width=True,
+                hide_index=True
+            )

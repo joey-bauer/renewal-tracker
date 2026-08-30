@@ -99,3 +99,23 @@ def add_tasks(account_id, renewal_tasks):
 
     connection.commit()
     connection.close()
+
+def get_tasks_for_account(account_id):
+    connection = sqlite3.connect(DATABASE_NAME)
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        SELECT id, task_name, due_date, status
+        FROM tasks
+        WHERE account_id = ?
+        ORDER BY due_date
+        """,
+        (account_id,)
+    )
+
+    tasks = cursor.fetchall()
+
+    connection.close()
+
+    return tasks
