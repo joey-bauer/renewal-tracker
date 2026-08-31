@@ -119,3 +119,22 @@ def get_tasks_for_account(account_id):
     connection.close()
 
     return tasks
+
+def update_task_status(task_id, new_status):
+    connection = sqlite3.connect(DATABASE_NAME)
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        UPDATE tasks
+        SET status = ?
+        WHERE id = ?
+        """,
+        (
+            new_status,
+            task_id
+        )
+    )
+
+    connection.commit()
+    connection.close()
