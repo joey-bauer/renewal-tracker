@@ -7,6 +7,7 @@ import streamlit as st
 from automator_logic import create_renewal_schedule
 from database import (
     add_account, 
+    account_exists,
     add_tasks,
     get_all_accounts,
     get_tasks_for_account,
@@ -86,6 +87,8 @@ if page == "Create Schedule":
 
         if not account_name.strip():
             st.error("Please enter an account name.")
+        elif account_exists(account_name.strip()):
+            st.error("An account with this name already exists.")
         elif not selected_loss_run_days:
             st.error("Please select at least one loss run date.")
         else:
@@ -212,47 +215,39 @@ elif page == "All Accounts":
 
             for task_id, task_name, due_date, status in tasks:
                 task_table.append({
+                    "Task ID": task_id,
                     "Task": task_name,
                     "Due Date": due_date,
                     "Status": status
                 })
 
-            st.dataframe(
+            edited_task_table = st.data_editor(
                 task_table,
+                column_config={
+                    "Task ID": None,
+                    "Status": st.column_config.SelectboxColumn(
+                        "Status",
+                        options=[
+                            "Not Started",
+                            "In Progress",
+                            "Completed"
+                        ],
+                        required=True
+                    )
+                },
+                disabled=[
+                    "Task",
+                    "Due Date"
+                ],
                 use_container_width=True,
                 hide_index=True
             )
-
-            st.subheader("Update Task Status")
-
-            selected_task = st.selectbox(
-                "Select a task",
-                options=tasks,
-                format_func=lambda task: (
-                    f"{task[1]}  Due: {task[2]}"
-                )
-            )
-
-            selected_task_id = selected_task[0]
-            current_status = selected_task[3]
-
-            status_options = [
-                "Not Started",
-                "In Progress",
-                "Completed"
-            ]
-
-            new_status = st.selectbox(
-                "Status",
-                options=status_options,
-                index=status_options.index(current_status)
-            )
-
-            if st.button("Update Status"):
-                update_task_status(
-                    selected_task_id,
-                    new_status
-                )
-
-                st.success("Task status update.")
-                st.rerun()
+    
+            if st.button("Save Task Changes"):
+                for task in edited_task_table.to_dict("records"):
+                    update_task_status(
+                        task["Task ID"],
+                        task["Status"]
+                    )
+    
+                st.success("Task changes saved.")

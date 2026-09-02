@@ -73,6 +73,26 @@ def get_all_accounts():
 
     return accounts
 
+def account_exists(account_name):
+    connection = sqlite3.connect(DATABASE_NAME)
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        SELECT id
+        FROM accounts
+        WHERE LOWER(account_name) = LOWER(?)
+        LIMIT 1
+        """,
+        (account_name,)
+    )
+
+    account = cursor.fetchone()
+
+    connection.close()
+
+    return account is not None
+
 
 def add_tasks(account_id, renewal_tasks):
     connection = sqlite3.connect(DATABASE_NAME)
