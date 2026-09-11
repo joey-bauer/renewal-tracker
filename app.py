@@ -1,12 +1,14 @@
 import csv
 import io
 import re
+import calendar
 import pandas as pd
-
 import streamlit as st
 
+from datetime import datetime, date, timedelta
+
 from automator_logic import create_renewal_schedule
-from database import (
+from database import(
     add_account, 
     account_exists,
     add_custom_task,
@@ -15,10 +17,29 @@ from database import (
     delete_task,
     get_account_by_id,
     get_all_accounts,
+    get_all_tasks,
     get_tasks_for_account,
     initialize_database,
     update_task_status
     )
+
+st.set_page_config(
+    page_title="Renewal Tracker",
+    layout="wide"
+)
+
+st.markdown(
+    """
+    <style>
+        .block-container {
+            max-width: 100%;
+            padding-left: 2rem;
+            padding-right: 2rem;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 initialize_database()
 
@@ -33,11 +54,11 @@ def calculate_account_progress(tasks):
     if total_tasks == 0:
         account_status = "No Tasks"
     elif completed_tasks == total_tasks:
-        account_status = "Competed"
+        account_status = "Completed"
     elif completed_tasks > 0:
         account_status = "In Progress"
     else:
-        account_status = "Not Started "
+        account_status = "Not Started"
 
     return account_status, completed_tasks, total_tasks
 
@@ -301,7 +322,7 @@ elif (
                     )
                 },
                 disabled=[
-                    "Tasks ID",
+                    "Task IDs",
                     "Task",
                     "Due Date"
                 ],
@@ -319,14 +340,6 @@ elif (
 
                 st.success("Task changes saved.")
                 st.rerun()
-
-                if st.button(
-                    "Delete Selected Task",
-                    disabled=not confirm_task_delete,
-                    key=f"delete_task_button_{selected_account_id}"
-                ):
-                    delete_task(task_to_delete[0])
-                    st.rerun()
 
         with st.expander("Add a Custom Task"):
             with st.form(
@@ -369,7 +382,7 @@ elif (
                 )
 
                 if st.button(
-                    "Delete Seleceted Task",
+                    "Delete Selected Task",
                     disabled=not confirm_task_delete,
                     key=f"delete_task_button_{selected_account_id}"
                 ):
@@ -380,7 +393,7 @@ elif (
         st.subheader("Delete Account")
 
         confirm_delete = st.checkbox(
-            f"I understand that adeleting {selected_account_name} "
+            f"I understand that deleting {selected_account_name} "
             "will also delete all of its tasks.",
             key=f"confirm_delete_{selected_account_id}"
         )
@@ -395,7 +408,216 @@ elif (
             st.session_state.selected_account_id = None
 
             st.rerun()
-
 elif page == "Calendar":
-    st.title("Calendar")
-    st.info("The renewal calendar will be added here.")
+    st.title("Renewal Calendar")
+
+    task_list_tab, month_view_tab = st.tabs([
+        "Task List",
+        "Month View"
+    ])
+
+    all_tasks = get_all_tasks()
+
+    with task_list_tab:
+            if not all_tasks:
+                st.info("No renewal tasks have been created yet.")
+
+            else:
+                calendar_table = []
+
+                today = date.today()
+
+                for (
+                    task_id,
+                    account_name,
+                    task_name,
+                    due_date,
+                    status
+                ) in all_tasks:
+
+                    due_date_object = datetime.strptime(
+                        due_date,
+                        "%Y-%m-%d"
+                    ).date()
+
+                    if status == "Completed":
+                        timing = "🟢 Completed"
+
+                    elif due_date_object < today:
+                        timing = "🔴 Overdue"
+
+                    elif due_date_object == today:
+                        timing = "🟠 Due Today"
+
+                    elif due_date_object <= today + timedelta(days=7):
+                        timing = "🟡 Due Soon"
+
+                    else:
+                        timing = "🔵 Upcoming"
+
+                    calendar_table.append({
+                        "Account": account_name,
+                        "Task": task_name,
+                        "Due Date": due_date_object,
+                        "Status": status,
+                        "Timing": timing
+                    })
+
+                st.dataframe(
+                    calendar_table,
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config={
+                        "Due Date": st.column_config.DateColumn(
+                            "Due Date",
+                            format="MMM D, YYYY"
+                        ),
+                        "Status": st.column_config.TextColumn(
+                            "Status"
+                        ),
+                        "Timing": st.column_config.TextColumn(
+                            "Timing"
+                        )
+                    }
+                )
+    with month_view_tab:
+        st.info("The monthly calendar will go here next.")
+
+    with month_view_tab:
+        today = date.today()
+
+        month_column, year_column = st.columns(2)
+
+        with month_column:
+            selected_month_name = st.selectbox(
+                "Month",
+                list(calendar.month_name)[1:],
+                index=today.month - 1
+            )
+
+        with year_column:
+            selected_year = st.number_input(
+                "Year",
+                min_value=2020,
+                max_value=2100,
+                value=today.year,
+                step=1
+            )
+
+        selected_month = list(
+            calendar.month_name
+        ).index(selected_month_name)
+
+        st.subheader(
+            f"{selected_month_name} {selected_year}"
+        )
+
+        weekday_names = [
+            "Sunday",   
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+        ]
+
+        weekday_columns = st.columns(7)
+
+        for column, weekday_name in zip(
+            weekday_columns,
+            weekday_names
+        ):
+            column.markdown(f"**{weekday_name}**")
+
+        sunday_calendar = calendar.Calendar(
+            firstweekday=calendar.SUNDAY
+        )
+
+        month_weeks = sunday_calendar.monthdayscalendar(
+            int(selected_year),
+            selected_month
+        )
+
+        tasks_by_date = {}
+
+        for (
+            task_id,
+            account_name,
+            task_name,
+            due_date,
+            status
+        ) in all_tasks:
+
+            task_due_date = datetime.strptime(
+                due_date,
+                "%Y-%m-%d"
+            ).date()
+
+            tasks_by_date.setdefault(
+                task_due_date,
+                []
+            ).append({
+                "task_id": task_id,
+                "account_name": account_name,
+                "task_name": task_name,
+                "status": status
+            })
+
+        for week in month_weeks:
+            day_columns = st.columns(7)
+
+            for column, day_number in zip(
+                day_columns,
+                week
+            ):
+                with column:
+                    if day_number == 0:
+                        with st.container(
+                            height=140,
+                            border=False
+                        ):
+                            st.write("")
+
+                    else:
+                        calendar_date = date(
+                            int(selected_year),
+                            selected_month,
+                            day_number
+                        )
+
+                        tasks_for_day = tasks_by_date.get(
+                            calendar_date,
+                            []
+                        )
+
+                        with st.container(
+                            height=140,
+                            border=True
+                        ):  
+                            st.markdown(f"**{day_number}**")
+
+                            for task in tasks_for_day:
+                                if task["status"] == "Completed":
+                                    status_icon = "🟢"
+
+                                elif calendar_date < date.today():
+                                    status_icon = "🔴"
+
+                                elif calendar_date == date.today():
+                                    status_icon = "🟠"
+
+                                elif calendar_date <= (
+                                    date.today() + timedelta(days=7)
+                                ):
+                                    status_icon = "🟡"
+
+                                else:
+                                    status_icon = "🔵"
+
+                                st.caption(
+                                    f"{status_icon} "
+                                    f"**{task['account_name']}**"
+                                )
+
+                                st.caption(task["task_name"])

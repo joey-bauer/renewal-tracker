@@ -184,6 +184,31 @@ def get_tasks_for_account(account_id):
 
     return tasks
 
+def get_all_tasks():
+    connection = sqlite3.connect(DATABASE_NAME)
+    cursor = connection.cursor()
+
+    cursor.execute(
+        """
+        SELECT
+            tasks.id,
+            accounts.account_name,
+            tasks.task_name,
+            tasks.due_date,
+            tasks.status
+        FROM tasks
+        JOIN accounts
+            ON tasks.account_id = accounts.id
+        ORDER BY tasks.due_date
+        """
+    )
+
+    tasks = cursor.fetchall()
+
+    connection.close()
+
+    return tasks
+
 def delete_account(account_id):
     connection = sqlite3.connect(DATABASE_NAME)
     cursor = connection.cursor()
