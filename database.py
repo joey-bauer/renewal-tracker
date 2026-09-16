@@ -2,7 +2,7 @@ import sqlite3
 
 DATABASE_NAME = "renewal_tracker.db"
 
-
+# Create the accounts and tasks tables if they do not already exist
 def initialize_database():
     connection = sqlite3.connect(DATABASE_NAME)
     cursor = connection.cursor()
@@ -31,7 +31,7 @@ def initialize_database():
     connection.commit()
     connection.close()
 
-
+# Add a new account to the database and return its generated ID
 def add_account(account_name, renewal_date):
     connection = sqlite3.connect(DATABASE_NAME)
     cursor = connection.cursor()
@@ -54,7 +54,7 @@ def add_account(account_name, renewal_date):
 
     return account_id
 
-
+# Retrieve all accounts ordered by renewal date
 def get_all_accounts():
     connection = sqlite3.connect(DATABASE_NAME)
     cursor = connection.cursor()
@@ -73,6 +73,7 @@ def get_all_accounts():
 
     return accounts
 
+# Retrieve one account using its unique account ID
 def get_account_by_id(account_id):
     connection = sqlite3.connect(DATABASE_NAME)
     cursor = connection.cursor()
@@ -92,6 +93,7 @@ def get_account_by_id(account_id):
 
     return account
 
+# Check whether an account with the same name already exists
 def account_exists(account_name):
     connection = sqlite3.connect(DATABASE_NAME)
     cursor = connection.cursor()
@@ -112,7 +114,7 @@ def account_exists(account_name):
 
     return account is not None
 
-
+# Add the generated renewal schedule tasks to a specific account
 def add_tasks(account_id, renewal_tasks):
     connection = sqlite3.connect(DATABASE_NAME)
     cursor = connection.cursor()
@@ -139,6 +141,7 @@ def add_tasks(account_id, renewal_tasks):
     connection.commit()
     connection.close()
 
+# Add a single custom task to a specific account
 def add_custom_task(account_id, task_name, due_date):
     connection = sqlite3.connect(DATABASE_NAME)
     cursor = connection.cursor()
@@ -164,6 +167,7 @@ def add_custom_task(account_id, task_name, due_date):
     connection.commit()
     connection.close()
 
+# Retrieve all tasks belonging to a specific account
 def get_tasks_for_account(account_id):
     connection = sqlite3.connect(DATABASE_NAME)
     cursor = connection.cursor()
@@ -184,6 +188,7 @@ def get_tasks_for_account(account_id):
 
     return tasks
 
+# Retrieve all tasks and their account names for the calendar
 def get_all_tasks():
     connection = sqlite3.connect(DATABASE_NAME)
     cursor = connection.cursor()
@@ -209,6 +214,7 @@ def get_all_tasks():
 
     return tasks
 
+# Delete an account and all tasks associated with it
 def delete_account(account_id):
     connection = sqlite3.connect(DATABASE_NAME)
     cursor = connection.cursor()
@@ -232,6 +238,7 @@ def delete_account(account_id):
     connection.commit()
     connection.close()
 
+# Delete a specific task using its task ID
 def delete_task(task_id):
     connection = sqlite3.connect(DATABASE_NAME)
     cursor = connection.cursor()
@@ -247,6 +254,7 @@ def delete_task(task_id):
     connection.commit()
     connection.close()
 
+# Update the status of a specific task
 def update_task_status(task_id, new_status):
     connection = sqlite3.connect(DATABASE_NAME)
     cursor = connection.cursor()

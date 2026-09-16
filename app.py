@@ -1,12 +1,18 @@
+# Built-in Python modules used for CSV creation,
+# text handling, account name cleanup, and calendar calculations.
 import csv
 import io
 import re
 import calendar
+
+# Third party libraries used for tables and the web interface.
 import pandas as pd
 import streamlit as st
 
+# Date tools used throughout the app.
 from datetime import datetime, date, timedelta
 
+# Project functions.
 from automator_logic import create_renewal_schedule
 from database import(
     add_account, 
@@ -23,11 +29,14 @@ from database import(
     update_task_status
     )
 
+# Configure the overall Streamlit page.
 st.set_page_config(
     page_title="Renewal Tracker",
     layout="wide"
 )
 
+# Override Streamlit's default page margins so the calendar
+# can use more of the available screen width
 st.markdown(
     """
     <style>
@@ -41,8 +50,11 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+# Create the SQLite tables if they do not already exist
 initialize_database()
 
+# Determine the overall status of an account by looking
+# at how many of its renewal tasks are completed.
 def calculate_account_progress(tasks):
     total_tasks = len(tasks)
 
@@ -62,14 +74,20 @@ def calculate_account_progress(tasks):
 
     return account_status, completed_tasks, total_tasks
 
+# Store which account the user has selected.
+# None means the user is currently viewing the main Dashboard.
 if "selected_account_id" not in st.session_state:
     st.session_state.selected_account_id = None
 
+# Create the sidebar navigation and store the selected page
 page = st.sidebar.radio(
     "Navigation",
     ["Dashboard", "Add Account", "Calendar"]
 )
 
+# -----------------------
+# ADD ACCOUNT PAGE
+# -----------------------
 if page == "Add Account":
 
     st.title("Renewal Tracker")
@@ -89,10 +107,13 @@ if page == "Add Account":
         format_func=lambda days: f"{days} days before renewal"
     )
 
+    # Give the user the option to add an additional
+    # custom loss run date.
     add_custom_loss_run = st.checkbox("Add a custom loss run date")
 
     custom_loss_run_days = None
 
+    # Only show the number input if the checkbox is selected.
     if add_custom_loss_run:
         custom_loss_run_days = st.number_input(
             "Custom number of days before renewal",
@@ -101,6 +122,8 @@ if page == "Add Account":
             step=1
         )
 
+    # Let the user control how many dayse before renewal
+    # each major renewal task should be done.
     st.subheader("Other Renewal Tasks")
 
     exposure_workbook_days = st.number_input(
@@ -124,11 +147,15 @@ if page == "Add Account":
         step=1
     )
 
+    # When the user clicks Create Schedule, validate the inputs,
+    # save the account, generate its renewal tasks,
+    # and save those tasks to the database.
     if st.button("Create Schedule", type="primary"):
 
         selected_loss_run_days = loss_run_options.copy()
 
-        if (add_custom_loss_run 
+        if (
+            add_custom_loss_run 
             and custom_loss_run_days not in selected_loss_run_days
         ):
             selected_loss_run_days.append(custom_loss_run_days)
@@ -154,10 +181,14 @@ if page == "Add Account":
 
             add_tasks(account_id, renewal_tasks)
 
+            # Show the newly created renewal schedule to the user
+            # and prepare a downloadable CSV version of it.
             st.success(f"Renewal schedule created for {account_name}.")
 
             st.subheader("Renewal Schedule")
 
+            # Convert the renewal task tuples into dictionaries
+            # so Streamlit can display them as a clean table.
             schedule_table = []
 
             for task_name, task_date in renewal_tasks:
@@ -173,6 +204,9 @@ if page == "Add Account":
                 hide_index=True
             )
 
+        # Build CSV version of the schedule in memory and allow user to download.
+            # Create a temporary text file in memory
+            # that we can write CSV data into.
             csv_file = io.StringIO()
 
             fieldnames = [
@@ -197,6 +231,8 @@ if page == "Add Account":
                     "Status": "Not Started"
                 })
 
+            # Clean the account name so it can safely be used
+            # as part of the downloaded CSV filename.
             safe_account_name = re.sub(
                 r"[^a-zA-Z0-9]+",
                 "_",
@@ -213,6 +249,7 @@ if page == "Add Account":
                 on_click="ignore"
             )
 
+# Display all accounts and their overall renewal progress
 elif (
     page == "Dashboard"
     and st.session_state.selected_account_id is None
@@ -226,6 +263,7 @@ elif (
     else:
         account_table = []
 
+        # Get each account's tasks and calculate its progress
         for account_id, account_name, renewal_date, created_at in accounts:
             tasks = get_tasks_for_account(account_id)
 
@@ -251,6 +289,7 @@ elif (
 
         st.subheader("Account Details")
 
+        # Create account buttons and store the selected account in session state
         for account_id, account_name, renewal_date, created_at in accounts:
             if st.button(
                 f"{account_name} - Renewal: {renewal_date}",
@@ -259,12 +298,14 @@ elif (
                 st.session_state.selected_account_id = account_id
                 st.rerun()
 
+# Display the selected account and its renewal details
 elif (
     page == "Dashboard"
     and st.session_state.selected_account_id is not None
 ):
     selected_account = get_account_by_id(st.session_state.selected_account_id)
 
+    # Handle cases where the selected account no longer exists
     if selected_account is None:
         st.error("This account could not be found.")
 
@@ -286,7 +327,8 @@ elif (
 
         st.title(selected_account_name)
         st.write(f"**Renewal Date:** {selected_renewal_date}")
-        
+
+        # Load and display all renewal tasks for the selected account
         st.subheader("Renewal Tasks")
 
         tasks = get_tasks_for_account(selected_account_id)
@@ -307,6 +349,7 @@ elif (
 
             task_dataframe = pd.DataFrame(task_table)
 
+            # Let the user edit task statuses directly in the table
             edited_task_table = st.data_editor(
                 task_dataframe,
                 column_config={
@@ -322,7 +365,7 @@ elif (
                     )
                 },
                 disabled=[
-                    "Task IDs",
+                    "Task ID",
                     "Task",
                     "Due Date"
                 ],
@@ -331,6 +374,7 @@ elif (
                 key=f"task_editor_{selected_account_id}"
             )
 
+            # Save any status changes back to the database
             if st.button("Save Task Changes"):
                 for task in edited_task_table.to_dict("records"):
                     update_task_status(
@@ -341,6 +385,7 @@ elif (
                 st.success("Task changes saved.")
                 st.rerun()
 
+        # Allow the user to add a custom task to the selected account
         with st.expander("Add a Custom Task"):
             with st.form(
                 key=f"add_task_form_{selected_account_id}",
@@ -365,6 +410,7 @@ elif (
 
                         st.rerun()
 
+        # Allow user to delete task (with confirmation)
         if tasks:
             with st.expander("Delete a Task"):
                 task_to_delete = st.selectbox(
@@ -389,6 +435,7 @@ elif (
                     delete_task(task_to_delete[0])
                     st.rerun()
 
+        # Allow the user to confirm and permanently delete the selected account
         st.divider()
         st.subheader("Delete Account")
 
@@ -408,6 +455,8 @@ elif (
             st.session_state.selected_account_id = None
 
             st.rerun()
+
+# Display all renewal tasks in list and monthly calendar views          
 elif page == "Calendar":
     st.title("Renewal Calendar")
 
@@ -418,13 +467,13 @@ elif page == "Calendar":
 
     all_tasks = get_all_tasks()
 
+    # Build a task list showing each task's timing relative to today
     with task_list_tab:
             if not all_tasks:
                 st.info("No renewal tasks have been created yet.")
 
             else:
                 calendar_table = []
-
                 today = date.today()
 
                 for (
@@ -440,6 +489,7 @@ elif page == "Calendar":
                         "%Y-%m-%d"
                     ).date()
 
+                    # Categorize each task based on its status and due date
                     if status == "Completed":
                         timing = "🟢 Completed"
 
@@ -480,9 +530,8 @@ elif page == "Calendar":
                         )
                     }
                 )
-    with month_view_tab:
-        st.info("The monthly calendar will go here next.")
 
+    # Build the monthly calendar view and let the user choose a month and year
     with month_view_tab:
         today = date.today()
 
@@ -512,6 +561,7 @@ elif page == "Calendar":
             f"{selected_month_name} {selected_year}"
         )
 
+        # Create and display the seven weekday columns
         weekday_names = [
             "Sunday",   
             "Monday",
@@ -530,6 +580,7 @@ elif page == "Calendar":
         ):
             column.markdown(f"**{weekday_name}**")
 
+        # generate the weeks and days for the selected month
         sunday_calendar = calendar.Calendar(
             firstweekday=calendar.SUNDAY
         )
@@ -539,6 +590,7 @@ elif page == "Calendar":
             selected_month
         )
 
+        # Group all renewal tasks by their due date for calendar placement
         tasks_by_date = {}
 
         for (
@@ -564,6 +616,7 @@ elif page == "Calendar":
                 "status": status
             })
 
+        # Build each week and day cell in the monthly calendar
         for week in month_weeks:
             day_columns = st.columns(7)
 
@@ -597,6 +650,7 @@ elif page == "Calendar":
                         ):  
                             st.markdown(f"**{day_number}**")
 
+                            # Display each day's tasks with status indicator
                             for task in tasks_for_day:
                                 if task["status"] == "Completed":
                                     status_icon = "🟢"

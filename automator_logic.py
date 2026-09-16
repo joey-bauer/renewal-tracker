@@ -1,5 +1,6 @@
 from datetime import timedelta
 
+# Generate and sort renewal tasks based on the selected renewal date
 def create_renewal_schedule(
     renewal_date,
     loss_run_days,
@@ -17,9 +18,9 @@ def create_renewal_schedule(
         ])
 
     renewal_tasks.extend([
-        ["Send Exposure Workbook to Client",renewal_date - timedelta(days=exposure_workbook_days)],
-        ["Send Submissions",renewal_date - timedelta(days=submission_days)],
-        ["Follow up with Underwriters",renewal_date - timedelta(days=underwriter_days)],
+        ["Send Exposure Workbook to Client",renewal_date - timedelta(days=exposure_workbook_days)], 
+        ["Send Submissions",renewal_date - timedelta(days=submission_days)], 
+        ["Follow up with Underwriters",renewal_date - timedelta(days=underwriter_days)], 
         ["Policy Renewal", renewal_date]
     ])
 
