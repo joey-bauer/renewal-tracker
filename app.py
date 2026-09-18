@@ -122,7 +122,7 @@ if page == "Add Account":
             step=1
         )
 
-    # Let the user control how many dayse before renewal
+    # Let the user control how many days before renewal
     # each major renewal task should be done.
     st.subheader("Other Renewal Tasks")
 
@@ -321,7 +321,7 @@ elif (
             selected_created_at
         ) = selected_account
 
-        if st.button  ("Back to Dashboard"):
+        if st.button("Back to Dashboard"):
             st.session_state.selected_account_id = None
             st.rerun()
 
