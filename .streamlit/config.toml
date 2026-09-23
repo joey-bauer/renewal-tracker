@@ -1,0 +1,11 @@
+[theme]
+primaryColor = "#29AB87"
+
+backgroundColor = "#FAFAF8"
+secondaryBackgroundColor = "#FAFAF8"
+
+borderColor = "#1F8A70"
+dataframeBorderColor = "#1F8A70"
+dataframeHeaderBackgroundColor = "#EEEEEC"
+
+showWidgetBorder = true

@@ -29,11 +29,24 @@ from database import(
     update_task_status
     )
 
+
+def load_css(file_path):
+    with open(file_path, encoding="utf-8") as css_file:
+        st.markdown(
+            f"<style>{css_file.read()}</style>",
+            unsafe_allow_html=True
+        )
+
+
 # Configure the overall Streamlit page.
 st.set_page_config(
     page_title="Renewal Tracker",
+    page_icon="📅",
     layout="wide"
 )
+
+
+load_css("styles.css")
 
 # Override Streamlit's default page margins so the calendar
 # can use more of the available screen width
@@ -91,9 +104,6 @@ page = st.sidebar.radio(
 if page == "Add Account":
 
     st.title("Renewal Tracker")
-    st.write(
-        "Create, organize, and export renewal schedules for your accounts."
-    )
 
     account_name = st.text_input("Account Name")
     renewal_date = st.date_input("Renewal Date")
@@ -256,7 +266,56 @@ elif (
 ):
     st.title("All Accounts")
 
+    # Load account and task data for the dashboard summary
     accounts = get_all_accounts()
+    all_tasks = get_all_tasks()
+
+    today = date.today()
+
+    overdue_tasks = 0
+    upcoming_tasks = 0
+    completed_tasks = 0
+
+    for(
+        task_id,
+        account_name,
+        task_name,
+        due_date,
+        status
+    ) in all_tasks:
+
+        due_date_object = datetime.strptime(
+            due_date,
+            "%Y-%m-%d"
+        ).date()
+
+        if due_date_object < today:
+            overdue_tasks += 1
+
+        elif due_date_object <= today + timedelta(days=7):
+            upcoming_tasks += 1
+
+    # Display the summary across four dashboard columns
+    (
+        accounts_column,
+        overdue_column,
+        upcoming_column,
+    ) = st.columns(3)
+
+    accounts_column.metric(
+        "Total Accounts",
+        len(accounts)
+    )
+
+    overdue_column.metric(
+        "Overdue Tasks",
+        len(accounts)
+    )
+
+    upcoming_column.metric(
+        "Due Next 7 Days",
+        upcoming_tasks
+    )
 
     if not accounts:
         st.info("No accounts have been created yet.")
@@ -646,7 +705,8 @@ elif page == "Calendar":
 
                         with st.container(
                             height=140,
-                            border=True
+                            border=True,
+                            key=f"calendar_tile_{selected_year}_{selected_month}_{day_number}"
                         ):  
                             st.markdown(f"**{day_number}**")
 
